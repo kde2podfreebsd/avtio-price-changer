@@ -21,13 +21,41 @@ class QuoteController:
                                 status TEXT,
                                 title TEXT,
                                 url TEXT UNIQUE,
-                                last_time_update DATETIME
+                                last_time_update DATETIME,
+                                quote_status BOOLEAN DEFAULT 1
                                 )''')
+            
+            self.cursor.execute('''CREATE TABLE IF NOT EXISTS update_info (
+                            id INTEGER PRIMARY KEY CHECK (id = 1),
+                            last_time_update_for_all_quotes DATETIME
+                            )''')
+
+            self.cursor.execute('INSERT OR IGNORE INTO update_info (id, last_time_update_for_all_quotes) VALUES (1, ?)', (datetime.now(),))
+
             self.conn.commit()
             return True
         except sqlite3.Error as e:
             print(f"Error creating quote table: {e}")
             return e
+
+    def update_last_time_update_for_all_quotes(self):
+        try:
+            self.cursor.execute('UPDATE update_info SET last_time_update_for_all_quotes = ? WHERE id = 1', (datetime.now(),))
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating last_time_update_for_all_quotes: {e}")
+            return e
+
+    def get_last_time_update_for_all_quotes(self):
+        try:
+            self.cursor.execute('SELECT last_time_update_for_all_quotes FROM update_info WHERE id = 1')
+            return self.cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            print(f"Error getting last_time_update_for_all_quotes: {e}")
+            return e
+
+    
 
     def create_ads(self, items: List[Avitoitem]):
         try:
@@ -71,6 +99,27 @@ class QuoteController:
         except sqlite3.Error as e:
             print(f"Error updating BTC price: {e}")
             return e
+        
+    def update_price(self, avito_id: int, new_price: float):
+        try:
+            self.cursor.execute('UPDATE quote SET rub_price = ?, last_time_update = ? WHERE avito_id = ?', (new_price, datetime.now(), avito_id))
+        except sqlite3.Error as e:
+            print(f"Error updating price: {e}")
+            return e
+        
+    def update_quotes_status(self, avito_id: int):
+        try:
+            self.cursor.execute('SELECT quote_status FROM quote WHERE avito_id = ?', (avito_id,))
+            current_status = self.cursor.fetchone()[0]
+
+            new_status = not current_status
+            self.cursor.execute('UPDATE quote SET quote_status = ? WHERE avito_id = ?', (new_status, avito_id))
+            
+            self.conn.commit()
+            return True
+        except sqlite3.Error as e:
+            print(f"Error updating quote status: {e}")
+            return e
 
     def get_rub_price(self, avito_id):
         try:
@@ -85,14 +134,6 @@ class QuoteController:
         response = requests.get(url=url).json() 
         return float(response['asks'][0]['price'])
 
-    def get_status(self, avito_id):
-        try:
-            self.cursor.execute('SELECT status FROM quote WHERE avito_id = ?', (avito_id,))
-            return self.cursor.fetchone()[0]
-        except sqlite3.Error as e:
-            print(f"Error getting status: {e}")
-            return e
-
     def get_all_ads(self):
         try:
             self.cursor.execute('SELECT * FROM quote')
@@ -101,9 +142,9 @@ class QuoteController:
             print(f"Error getting all ads: {e}")
             return []
 
-    def get_ads_by_status(self, status: ItemStatus):
+    def get_ads_by_status(self, status: bool):
         try:
-            self.cursor.execute('SELECT * FROM quote WHERE status = ?', (status.value,))
+            self.cursor.execute('SELECT * FROM quote WHERE quote_status = ?', (status,))
             return self.cursor.fetchall()
         except sqlite3.Error as e:
             print(f"Error getting ads by status: {e}")

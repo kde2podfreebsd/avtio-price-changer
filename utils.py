@@ -18,3 +18,4 @@ class Avitoitem:
     status: ItemStatus
     title: str
     url: str 
+    quote_status: bool

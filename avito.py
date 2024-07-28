@@ -3,12 +3,18 @@ from db import QuoteController
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dotenv import load_dotenv
-from bot import bot
 import logging
 from httpx import AsyncClient, HTTPStatusError
 from typing import Any, Dict, Optional, List
 from datetime import datetime, timedelta
 from utils import Avitoitem, ItemStatus
+
+# TODO: 1. Обновлять цену item'у не по расписанию (привзяка к btc)
+# TODO: 2. Обновлять цену всем item'aм в главном меню не по расписанию 
+# TODO: 3. Сменить объявлению price_ratio и rub_price
+# TODO: 4. Добавить кастомный статус
+
+logging.basicConfig(level=logging.INFO)
 
 class AvitoCore:
 
@@ -55,7 +61,7 @@ class AvitoCore:
                 raise e
             
 
-    async def get_quotes(self):
+    async def update_quotes(self):
         async with AsyncClient() as client:
             page = 1
             quotes = list()
@@ -63,7 +69,6 @@ class AvitoCore:
                 url = f'https://api.avito.ru/core/v1/items?page={page}'
                 headers = {'Authorization': f'Bearer {self.auth_cert}'}
                 response = await client.get(url, headers=headers)
-
                 if len(response.json()['resources']) == 0:
                     break
 
@@ -79,37 +84,57 @@ class AvitoCore:
                     price=item['price'],
                     status=ItemStatus(item['status']),
                     title=item['title'],
-                    url=item['url']
+                    url=item['url'],
+                    quote_status=True
                 )
                 for item in quotes
             ))
 
             self.qc.create_ads(items=items)
-
+            logging.info(f"Quotes created!: {items}")
             return items
         
     async def update_price(self, item_id: int):
         async with AsyncClient() as client:
-            price = self.qc.get_rub_price(item_id)
-            url = f"https://api.avito.ru/core/v1/items/{item_id}/update_price"
-            response = await client.post(url, headers={'Authorization': f'Bearer {self.auth_cert}', 'Content-Type': 'application/json'}, json={"price": int(price)})
-            response.raise_for_status()
-            return response.json().get('result')
+            try:
+                price = self.qc.get_rub_price(item_id)
+                url = f"https://api.avito.ru/core/v1/items/{item_id}/update_price"
+                response = await client.post(url, headers={'Authorization': f'Bearer {self.auth_cert}', 'Content-Type': 'application/json'}, json={"price": int(price)})
+                response.raise_for_status()
+                return int(price)
+            except HTTPStatusError as e:
+                logging.error(f"Failed to update price: {e}")
+                return e
         
+    async def update_items_price(self):
+        try:
+            await self.authenticate()
+            self.qc.update_prices()
+            await self.update_quotes()
+            quotes = self.qc.get_ads_by_status(status=True)
+            [await self.update_price(item[0]) for item in quotes]
+            logging.info("Prices updated!")
+            return True
+        except Exception as e:
+            return False
+        
+    async def everyminute_task(self):
+        await self.authenticate()
+        await self.update_quotes()
+        logging.info("Quotes updated!")
 
     async def scheduled_task(self):
-        await self.authenticate()
-        self.qc.update_prices()
-        logging.info("Prices updated!")
-        quotes: List[Avitoitem] = await self.get_quotes()
-        [await self.update_price(item.avito_id) for item in quotes]
+        self.qc.update_last_time_update_for_all_quotes()
+        await self.update_items_price()
 
     def run(self):
-        self.scheduler.add_job(self.scheduled_task, CronTrigger(minute="*"))
+        self.scheduler.add_job(self.everyminute_task, CronTrigger(minute="*"))
+        self.scheduler.add_job(self.scheduled_task, CronTrigger(hour=2, minute=0, second=0, timezone='Europe/Moscow'))
         self.scheduler.start()
         print("Scheduler started!")
 
-    
+        loop = asyncio.get_event_loop()
+        loop.run_forever()
         
 
 
@@ -117,7 +142,3 @@ if __name__ == "__main__":
     import asyncio
     avito_core = AvitoCore()
     avito_core.run()
-    try:
-        asyncio.get_event_loop().run_forever()
-    except (KeyboardInterrupt, SystemExit):
-        pass
