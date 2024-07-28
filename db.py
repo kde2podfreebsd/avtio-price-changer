@@ -1,6 +1,8 @@
 import sqlite3
 import requests
-
+from typing import Optional, List
+from utils import Avitoitem, ItemStatus
+from datetime import datetime
 
 class QuoteController:
     def __init__(self, db_path):
@@ -12,10 +14,14 @@ class QuoteController:
         try:
             self.cursor.execute('''CREATE TABLE IF NOT EXISTS quote (
                                 avito_id INTEGER PRIMARY KEY,
+                                address TEXT,
+                                category TEXT,
                                 rub_price FLOAT,
-                                btc_price FLOAT,
                                 price_ratio FLOAT,
-                                status BOOLEAN
+                                status TEXT,
+                                title TEXT,
+                                url TEXT UNIQUE,
+                                last_time_update DATETIME
                                 )''')
             self.conn.commit()
             return True
@@ -23,19 +29,30 @@ class QuoteController:
             print(f"Error creating quote table: {e}")
             return e
 
-    def create_ad(self, avito_id, rub_price, btc_price, status):
+    def create_ads(self, items: List[Avitoitem]):
         try:
-            price_ratio = rub_price / btc_price
-            self.cursor.execute('''INSERT INTO quote (avito_id, rub_price, btc_price, price_ratio, status)
-                                VALUES (?, ?, ?, ?, ?)''', 
-                                (avito_id, rub_price, btc_price, price_ratio, status))
+            btc_price = self.get_current_btc_price()
+            existing_ids = {row[0] for row in self.cursor.execute('SELECT avito_id FROM quote').fetchall()}
+            incoming_ids = {item.avito_id for item in items}
+
+            ids_to_delete = existing_ids - incoming_ids
+            if ids_to_delete:
+                self.cursor.executemany('DELETE FROM quote WHERE avito_id = ?', [(id_,) for id_ in ids_to_delete])
+
+            for item in items:
+                price_ratio = item.price / btc_price
+                if item.avito_id not in existing_ids:
+                    self.cursor.execute('''INSERT INTO quote (avito_id, address, category, rub_price, price_ratio, status, title, url, last_time_update)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                        (item.avito_id, item.address, item.category, item.price, price_ratio, item.status.value, item.title, item.url, datetime.now()))
+
             self.conn.commit()
             return True
         except sqlite3.Error as e:
-            print(f"Error creating ad: {e}")
+            print(f"Error creating ads: {e}")
             return e
 
-    def update_btc_price(self):
+    def update_prices(self):
         try:
             new_btc_price = self.get_current_btc_price()
             self.cursor.execute('SELECT avito_id, price_ratio FROM quote')
@@ -45,22 +62,14 @@ class QuoteController:
                 avito_id, price_ratio = quote
                 new_rub_price = new_btc_price * price_ratio
                 self.cursor.execute('''UPDATE quote 
-                                    SET btc_price = ?, rub_price = ? 
+                                    SET rub_price = ?, price_ratio = ?, last_time_update = ?
                                     WHERE avito_id = ?''', 
-                                    (new_btc_price, new_rub_price, avito_id))
+                                    (new_rub_price, price_ratio, datetime.now(), avito_id))
             self.conn.commit()
 
             return True
         except sqlite3.Error as e:
             print(f"Error updating BTC price: {e}")
-            return e
-
-    def get_btc_price(self, avito_id):
-        try:
-            self.cursor.execute('SELECT btc_price FROM quote WHERE avito_id = ?', (avito_id,))
-            return self.cursor.fetchone()[0]
-        except sqlite3.Error as e:
-            print(f"Error getting BTC price: {e}")
             return e
 
     def get_rub_price(self, avito_id):
@@ -70,7 +79,7 @@ class QuoteController:
         except sqlite3.Error as e:
             print(f"Error getting RUB price: {e}")
             return e
-        
+
     def get_current_btc_price(self):
         url = 'https://garantex.org/api/v2/depth?market=btcrub' 
         response = requests.get(url=url).json() 
@@ -79,18 +88,9 @@ class QuoteController:
     def get_status(self, avito_id):
         try:
             self.cursor.execute('SELECT status FROM quote WHERE avito_id = ?', (avito_id,))
-            return self.cursor.fetchone()
+            return self.cursor.fetchone()[0]
         except sqlite3.Error as e:
             print(f"Error getting status: {e}")
-            return e
-
-    def update_status(self, avito_id, new_status):
-        try:
-            self.cursor.execute('UPDATE quote SET status = ? WHERE avito_id = ?', (new_status, avito_id))
-            self.conn.commit()
-            return True
-        except sqlite3.Error as e:
-            print(f"Error updating status: {e}")
             return e
 
     def get_all_ads(self):
@@ -101,9 +101,9 @@ class QuoteController:
             print(f"Error getting all ads: {e}")
             return []
 
-    def get_ads_by_status(self, status):
+    def get_ads_by_status(self, status: ItemStatus):
         try:
-            self.cursor.execute('SELECT * FROM quote WHERE status = ?', (status,))
+            self.cursor.execute('SELECT * FROM quote WHERE status = ?', (status.value,))
             return self.cursor.fetchall()
         except sqlite3.Error as e:
             print(f"Error getting ads by status: {e}")
@@ -120,5 +120,4 @@ class QuoteController:
 if __name__ == "__main__":
     db_path = 'ads.db'
     qc = QuoteController(db_path)
-    qc.update_btc_price()
-
+    qc.update_prices()

@@ -6,6 +6,7 @@ from telebot import types
 from db import QuoteController
 from typing import Dict, List, Optional
 import datetime
+from utils import ItemStatus
 
 load_dotenv()
 
@@ -40,7 +41,7 @@ message_context_manager: MessageContextManager = MessageContextManager()
 def main_menu(message, page=1) -> None:
     try:
         message_context_manager.delete_msgId_from_help_menu_dict(message.chat.id)
-        if message.chat.id in [int(x) for x in os.getenv("ADMIN_CHATIDS").replace("[", "").replace("]", "").split(",")]:
+        if message.chat.id in [int(x) for x in os.getenv("ADMIN_CHATIDS").replace("[", "").replace("]", "").replace(" ", "").split(",")]:
             all_ads = qc.get_all_ads()
             amount_of_pages = ceil(len(all_ads) / QUOTES_PER_PAGE)
 
@@ -54,7 +55,7 @@ def main_menu(message, page=1) -> None:
 
             keyboard = types.InlineKeyboardMarkup(row_width=3)
             for ad in data_to_display:
-                keyboard.add(types.InlineKeyboardButton(text=f"Avito ID: {ad[0]}", callback_data=f"quote_{ad[0]}"))
+                keyboard.add(types.InlineKeyboardButton(text=ad[6], callback_data=f"quote_{ad[0]}"))
 
             if amount_of_pages != 1:
                 back = types.InlineKeyboardButton(
@@ -72,15 +73,11 @@ def main_menu(message, page=1) -> None:
                     text="Garantex", url="https://garantex.org/"
                 )
 
-                garantex_api_url = types.InlineKeyboardButton(
-                    text="Garantex API", url="https://garantex.org/api/v2/depth?market=btcrub"
-                )
-
-                keyboard.add(garantex_url, garantex_api_url)
+                keyboard.add(garantex_url)
 
             msg = bot.send_message(
                 message.chat.id,
-                f'<i>Allowed for {message.chat.username if message.chat.username is not None else message.chat.id}!</i>\n\nBTC price on {datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")}: {qc.get_current_btc_price()}₽\n\n<b>Quotes:</b>',
+                f'<i>Allowed for {message.chat.username if message.chat.username is not None else message.chat.id}!</i>\nBTC price on {datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")}: {qc.get_current_btc_price()}₽\n\n<b>Объявления:</b>',
                 parse_mode="html",
                 reply_markup=keyboard
                 )
@@ -105,17 +102,20 @@ def main_menu_inline(call) -> None:
 def prepare_quote_message(avito_id):
     quote = qc.get_ad_by_avito_id(avito_id=avito_id)
     message = f'''
+Название объявления: {quote[6]}
 Avito ID: {quote[0]}
-URL: https://mock_url.com/avitoid:{quote[0]}
-RUB price: {quote[1]} ₽
-BTC price: {quote[2]} ₿
-price ratio: {quote[3]} (rub/btc price)
-Status: {'✅ Activated' if quote[4] else '❌ Disabled'}
+Адрес: {quote[1]}
+Категория: {quote[2]}
+Цена RUB: {quote[3]} ₽
+Цена BTC: {qc.get_current_btc_price()} ₿
+Соотношение цен rub/btc: {round(quote[4], 5)}
+Status: {'✅ Active' if quote[5] == ItemStatus.ACTIVE.value else f'❌ {quote[5]}'}
+Последнее время обновления: {quote[8]}
 '''
     keyboard = types.InlineKeyboardMarkup(row_width=1)
     keyboard.add(
-        types.InlineKeyboardButton(text="Change status", callback_data=f"change_status_{quote[0]}"),
-        types.InlineKeyboardButton(text="Back", callback_data="main_menu#1")
+        types.InlineKeyboardButton(text="🔗 Item URL", url=quote[7]),
+        types.InlineKeyboardButton(text="🔙 Back", callback_data="main_menu#1")
     )
     return message, keyboard
 
