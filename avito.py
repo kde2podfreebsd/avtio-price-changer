@@ -9,11 +9,6 @@ from typing import Any, Dict, Optional, List
 from datetime import datetime, timedelta
 from utils import Avitoitem, ItemStatus
 
-# TODO: 1. Обновлять цену item'у не по расписанию (привзяка к btc)
-# TODO: 2. Обновлять цену всем item'aм в главном меню не по расписанию 
-# TODO: 3. Сменить объявлению price_ratio и rub_price
-# TODO: 4. Добавить кастомный статус
-
 logging.basicConfig(level=logging.INFO)
 
 class AvitoCore:

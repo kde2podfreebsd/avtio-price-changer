@@ -83,7 +83,7 @@ async def main_menu(message, page=1) -> None:
             f'''
 <i>Allowed for {message.chat.username if message.chat.username is not None else message.chat.id}!</i>
 BTC price on {datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")}: {qc.get_current_btc_price()}₽
-Последнее время обновления: {datetime.datetime.strptime(qc.get_last_time_update_for_all_quotes(), "%Y-%m-%d %H:%M:%S.%f").strftime("%d.%m.%Y %H:%М:%S")}
+Последнее время обновления: {datetime.datetime.strptime(qc.get_last_time_update_for_all_quotes(), "%Y-%m-%d %H:%M:%S.%f").strftime("%d.%m.%Y %H:%M:%S")}
 <b>Объявления:</b>
 ''',
             parse_mode="html",
