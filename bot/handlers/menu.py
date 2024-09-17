@@ -28,9 +28,9 @@ async def start(message) -> None:
             text="Garantex", url="https://garantex.org/"
         )
     keyboard.add(profile_url)
+    keyboard.add(garantex_url)
     keyboard.add(chats)
     keyboard.add(items)
-    keyboard.add(garantex_url)
 
     msg = await bot.send_message(
         message.chat.id,
@@ -46,3 +46,8 @@ phone: {profile.phone}
         disable_web_page_preview=True
         )
     message_context_manager.add_msgId_to_help_menu_dict(message.chat.id, msg.message_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'back_to_main_menu')
+async def back_to_main_menu(call):
+    await start(call.message)

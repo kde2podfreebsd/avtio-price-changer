@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO)
 class AvitoChats(AvitoUser):
 
     def __init__(self):
-        super().__init__().__init__()
         super().__init__()
         self.chat_ids = list()
 
@@ -25,6 +24,7 @@ class AvitoChats(AvitoUser):
 
             if response.status_code == 200:
                 data = response.json()
+                print(data)
                 chats = ChatsInfo(**data)
                 self.chat_ids = [
                     {chat['id']: chat['users'][1]['name']}
@@ -58,5 +58,5 @@ if __name__ == "__main__":
     chats = AvitoChats()
     asyncio.run(chats.authenticate())
     asyncio.run(chats.get_chats())
-    asyncio.run(chats.send_message(chat_id='u2i-LK173UEiNsbuL0zr1T13eQ', text='test!!!'))
-    # print(chats.chat_ids)
+    #asyncio.run(chats.send_message(chat_id='u2i-LK173UEiNsbuL0zr1T13eQ', text='test!!!'))
+    print(chats.chat_ids)

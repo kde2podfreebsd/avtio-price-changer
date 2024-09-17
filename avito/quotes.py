@@ -1,4 +1,5 @@
 from avito.core import AvitoCore, quotesdal
+from avito.user import AvitoUser
 import logging
 from httpx import AsyncClient, HTTPStatusError
 from utils import Avitoitem, ItemStatus
@@ -79,8 +80,9 @@ if __name__ == "__main__":
 
     async def main():
         a = AvitoQuotes()
-        await a.authenticate()
+        await a.get_item(item_id=4314092814)
+        #await a.authenticate()
         # return await a.get_quotes()
-        await a.update_items_price()
+        #await a.update_items_price()
         #await a.update_price(item_id=4314080309)
     print(asyncio.run(main()))

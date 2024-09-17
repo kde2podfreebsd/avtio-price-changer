@@ -46,6 +46,12 @@ async def quotes_menu(message, page=1) -> None:
             )
             keyboard.add(update_all_prices)
 
+            back_to_main_menu = types.InlineKeyboardButton(
+                text='Назад в меню', callback_data="back_to_main_menu"
+            )
+
+            keyboard.add(back_to_main_menu)
+
             msg = await bot.send_message(
                 message.chat.id,
 

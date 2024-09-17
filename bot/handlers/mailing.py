@@ -3,6 +3,7 @@ from avito.chats import AvitoChats
 from telebot.asyncio_handler_backends import State, StatesGroup
 from bot.context import message_context_manager
 from telebot import types
+from bot.handlers.menu import start
 
 message_to_send = None
 
@@ -15,9 +16,15 @@ async def mailing_menu(call) -> None:
     await message_context_manager.delete_msgId_from_help_menu_dict(call.message.chat.id)
     chats_controller = AvitoChats()
     await chats_controller.get_chats()
+    keyboard = types.InlineKeyboardMarkup(row_width=3)
+    back_to_main_menu = types.InlineKeyboardButton(
+        text='Назад в меню', callback_data="back_to_main_menu"
+    )
+    keyboard.add(back_to_main_menu)
     msg = await bot.send_message(
         chat_id=call.message.chat.id,
-        text=f'📤Новая спам рассылка\nВсего чатов для рассылки: {len(chats_controller.chat_ids)}\n\nНапиши текстовое сообщение'
+        text=f'📤Новая спам рассылка\nВсего чатов для рассылки: {len(chats_controller.chat_ids)}\n\nНапиши текстовое сообщение',
+        reply_markup=keyboard
     )
     await bot.set_state(call.message.chat.id, MailingSteps.step2)
     message_context_manager.add_msgId_to_help_menu_dict(call.message.chat.id, msg.message_id)
@@ -60,3 +67,4 @@ async def send_mailing(call):
 async def cancel_mailing(call):
     await message_context_manager.delete_msgId_from_help_menu_dict(call.message.chat.id)
     await bot.send_message(chat_id=call.message.chat.id, text="Рассылка отменена.")
+    await start(call.message)
