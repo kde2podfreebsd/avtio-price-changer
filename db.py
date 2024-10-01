@@ -123,7 +123,7 @@ class QuoteDAL:
     async def get_all_ads(self) -> List[dict]:
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                db.row_factory = aiosqlite.Row  # This enables rows to be fetched as dictionaries
+                db.row_factory = aiosqlite.Row
                 cursor = await db.execute("SELECT * FROM quote")
                 return [dict(row) for row in await cursor.fetchall()]
         except Exception as e:
@@ -133,7 +133,7 @@ class QuoteDAL:
     async def get_ads_by_status(self, status: bool) -> List[dict]:
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                db.row_factory = aiosqlite.Row  # Set row factory for fetching rows as dictionaries
+                db.row_factory = aiosqlite.Row
                 cursor = await db.execute("SELECT * FROM quote WHERE quote_status = ?", (status,))
                 return [dict(row) for row in await cursor.fetchall()]
         except Exception as e:
@@ -143,7 +143,7 @@ class QuoteDAL:
     async def get_ad_by_avito_id(self, avito_id: int) -> Optional[dict]:
         try:
             async with aiosqlite.connect(self.db_path) as db:
-                db.row_factory = aiosqlite.Row  # Set row factory for fetching rows as dictionaries
+                db.row_factory = aiosqlite.Row
                 cursor = await db.execute("SELECT * FROM quote WHERE avito_id = ?", (avito_id,))
                 row = await cursor.fetchone()
                 return dict(row) if row else None
